@@ -1913,6 +1913,14 @@ DeliverTouchEvents(DeviceIntPtr dev, TouchPointInfoPtr ti,
 
     if (ti->emulate_pointer)
         UpdateDeviceState(dev, &ev->device_event);
+
+void
+SetDeviceRedirectWindow(DeviceIntPtr dev, WindowPtr window)
+{
+    SpritePtr pSprite = dev->spriteInfo->sprite;
+
+    pSprite->redirectWindow = window;
+    CheckMotion(NULL, dev->u.master);
 }
 
 int

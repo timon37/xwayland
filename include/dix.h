@@ -454,7 +454,7 @@ extern void DoFocusEvents(
     WindowPtr /* toWin */,
     int /* mode */);
 
-extern int SetInputFocus(
+extern _X_EXPORT int SetInputFocus(
     ClientPtr /* client */,
     DeviceIntPtr /* dev */,
     Window /* focusID */,

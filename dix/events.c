@@ -2849,7 +2849,15 @@ XYToWindow(SpritePtr pSprite, int x, int y)
     BoxRec		box;
 
     pSprite->spriteTraceGood = 1;	/* root window still there */
-    pWin = RootWindow(pSprite)->firstChild;
+    if (pSprite->redirectWindow == PointerRootWin) {
+	return RootWindow(pSprite);
+    } else if (pSprite->redirectWindow) {
+	pWin = pSprite->redirectWindow;
+	pSprite->spriteTrace[pSprite->spriteTraceGood++] = pWin;
+	pWin = pWin->firstChild;
+    } else
+	pWin = RootWindow(pSprite)->firstChild;
+
     while (pWin)
     {
 	if ((pWin->mapped) &&
