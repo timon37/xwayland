@@ -448,6 +448,12 @@ InitOutput(ScreenInfo *pScreenInfo, int argc, char **argv)
     if (xf86DoShowOptions)
         DoShowOptions();
 
+    /* FIXME: Better to delete drivers that require vt or hw if hosted. */
+    if (xorgHosted) {
+        xorgHWAccess = FALSE;
+        xorgHWOpenConsole = FALSE;
+    }
+
     /* Do a general bus probe.  This will be a PCI probe for x86 platforms */
     xf86BusProbe();
 
@@ -537,12 +543,6 @@ InitOutput(ScreenInfo *pScreenInfo, int argc, char **argv)
 	    if(!(flags & HW_SKIP_CONSOLE))
 		xorgHWOpenConsole = TRUE;
 	}
-    }
-
-    /* FIX<E: Better to delete drivers that require vt or hw if hosted. */
-    if (xorgHosted) {
-	xorgHWAccess = FALSE;
-	xorgHWOpenConsole = FALSE;
     }
 
     if (xorgHWOpenConsole)
