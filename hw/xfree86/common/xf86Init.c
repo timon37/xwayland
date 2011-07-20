@@ -448,12 +448,6 @@ InitOutput(ScreenInfo *pScreenInfo, int argc, char **argv)
     if (xf86DoShowOptions)
         DoShowOptions();
 
-    /* FIXME: Better to delete drivers that require vt or hw if wayland. */
-    if (xorgWayland) {
-        xorgHWAccess = FALSE;
-        xorgHWOpenConsole = FALSE;
-    }
-
     /* Do a general bus probe.  This will be a PCI probe for x86 platforms */
     xf86BusProbe();
 
@@ -538,10 +532,20 @@ InitOutput(ScreenInfo *pScreenInfo, int argc, char **argv)
 						  &flags))
 		flags = HW_IO;
 
+	    if (xorgWayland &&
+		(NEED_IO_ENABLED(flags) || !(flags & HW_SKIP_CONSOLE))) {
+
+		ErrorF("flags %lu, deleting\n", flags);
+
+		xf86DeleteDriver(i);
+		continue;
+	    }
+
 	    if(NEED_IO_ENABLED(flags))
 		xorgHWAccess = TRUE;
 	    if(!(flags & HW_SKIP_CONSOLE))
 		xorgHWOpenConsole = TRUE;
+
 	}
     }
 
