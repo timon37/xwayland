@@ -1390,7 +1390,7 @@ DbeWindowPrivDelete(pointer pDbeWinPriv, XID id)
 
 /******************************************************************************
  *
- * DBE DIX Procedure: DbeResetProc
+ * DBE DIX Procedure: DbeCloseScreen
  *
  * Description:
  *
@@ -1399,30 +1399,27 @@ DbeWindowPrivDelete(pointer pDbeWinPriv, XID id)
  *     other tasks related to shutting down the extension.
  *
  *****************************************************************************/
-static void
-DbeResetProc(ExtensionEntry *extEntry)
+static Bool
+DbeCloseScreen (int i, ScreenPtr pScreen)
 {
-    int			i;
-    ScreenPtr		pScreen;
-    DbeScreenPrivPtr	pDbeScreenPriv;
-    
-    for (i = 0; i < screenInfo.numScreens; i++)
+    DbeScreenPrivPtr	pDbeScreenPriv = DBE_SCREEN_PRIV(pScreen);
+
+    if (pDbeScreenPriv)
     {
-	pScreen = screenInfo.screens[i];
-	pDbeScreenPriv = DBE_SCREEN_PRIV(pScreen);
+	/* Unwrap DestroyWindow, which was wrapped in DbeExtensionInit().*/
+        pScreen->DestroyWindow = pDbeScreenPriv->DestroyWindow;
 
-	if (pDbeScreenPriv)
-	{
-            /* Unwrap DestroyWindow, which was wrapped in DbeExtensionInit().*/
-            pScreen->DestroyWindow = pDbeScreenPriv->DestroyWindow;
+	/* Unwrap CloseScreen, which was wrapped in DbeExtensionInit().*/
+        pScreen->CloseScreen = pDbeScreenPriv->CloseScreen;
 
-	    if (pDbeScreenPriv->ResetProc)
-		(*pDbeScreenPriv->ResetProc)(pScreen);
+	if (pDbeScreenPriv->ResetProc)
+	    (*pDbeScreenPriv->ResetProc)(pScreen);
 
-	    free(pDbeScreenPriv);
-	}
+	free(pDbeScreenPriv);
     }
-} /* DbeResetProc() */
+
+    return (*pScreen->CloseScreen) (i, pScreen);    
+} /* DbeCloseScreen */
 
 
 /******************************************************************************
@@ -1600,6 +1597,9 @@ DbeExtensionInit(void)
 
                 pDbeScreenPriv->DestroyWindow = pScreen->DestroyWindow;
                 pScreen->DestroyWindow        = DbeDestroyWindow;
+
+                pDbeScreenPriv->CloseScreen = pScreen->CloseScreen;
+                pScreen->CloseScreen        = DbeCloseScreen;
             }
             else
             {
@@ -1632,7 +1632,7 @@ DbeExtensionInit(void)
     /* Now add the extension. */
     extEntry = AddExtension(DBE_PROTOCOL_NAME, DbeNumberEvents, 
                             DbeNumberErrors, ProcDbeDispatch, SProcDbeDispatch,
-                            DbeResetProc, StandardMinorOpcode);
+                            NULL, StandardMinorOpcode);
 
     dbeErrorBase = extEntry->errorBase;
     SetResourceTypeErrorValue(dbeWindowPrivResType, dbeErrorBase + DbeBadBuffer);
