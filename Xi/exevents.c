@@ -1913,6 +1913,7 @@ DeliverTouchEvents(DeviceIntPtr dev, TouchPointInfoPtr ti,
 
     if (ti->emulate_pointer)
         UpdateDeviceState(dev, &ev->device_event);
+}
 
 void
 SetDeviceRedirectWindow(DeviceIntPtr dev, WindowPtr window)
@@ -1920,7 +1921,7 @@ SetDeviceRedirectWindow(DeviceIntPtr dev, WindowPtr window)
     SpritePtr pSprite = dev->spriteInfo->sprite;
     DeviceIntPtr mouse;
 
-    mouse = (IsMaster(dev) || dev->u.master) ? GetMaster(dev, MASTER_POINTER) : dev;
+    mouse = IsMaster(dev) ? GetMaster(dev, MASTER_POINTER) : dev;
 
     pSprite->redirectWindow = window;
 
