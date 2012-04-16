@@ -196,6 +196,11 @@ xwl_realize_window(WindowPtr window)
 	xserver_set_window_id(xwl_screen->xorg_server,
 			      xwl_window->surface, window->drawable.id);
 
+    /* we need to wait in order to avoid a race with Weston WM, when it would
+     * try to anticipate XCB_MAP_NOTIFY, requiring create_surface completed
+     * (for shell_surface_set_toplevel) */
+    wl_display_roundtrip(xwl_screen->display);
+
     wl_surface_set_user_data(xwl_window->surface, xwl_window);
     xwl_window_attach(xwl_window, (*screen->GetWindowPixmap)(window));
 
