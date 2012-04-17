@@ -112,6 +112,8 @@ global_handler(struct wl_display *display,
     } else if (strcmp (interface, "wl_shm") == 0) {
         xwl_screen->shm = wl_display_bind(xwl_screen->display,
 					  id, &wl_shm_interface);
+    } else if (strcmp (interface, "wl_shell") == 0) {
+		xwl_screen->shell = wl_display_bind(xwl_screen->display, id, &wl_shell_interface);
     }
 }
 

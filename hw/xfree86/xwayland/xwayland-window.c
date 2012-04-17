@@ -45,6 +45,43 @@
 
 static DevPrivateKeyRec xwl_window_private_key;
 
+
+static void
+xwl_shell_handle_configure(void *data, struct wl_shell_surface *shell_surface, uint32_t edges, int32_t width, int32_t height)
+{
+	struct xwl_window *xwl_window = data;
+	
+	printf ("HAUHTEONSUHETONSUHTENSOUHTEOTNSUHEOTNSUHTEOSUHTNSEOU %d %d\n", width, height);
+	
+	if (width <= 0 || height <= 0)
+		return;
+	
+//	xwl_window->resize_edges = edges;
+//	window_schedule_resize(xwl_window, width, height);
+}
+static void
+xwl_shell_handle_popup_done(void *data, struct wl_shell_surface *shell_surface)
+{
+	printf ("HAUHTEONSUHETONSUHTENSOUHTEOTNSUHEOTNSUHTEOSUHTNSEOU xwl_shell_handle_popup_done\n");
+/*	struct window *window = data;
+	struct menu *menu = window->widget->user_data;
+
+	/* FIXME: Need more context in this event, at least the input
+	 * device.  Or just use wl_callback.  And this really needs to
+	 * be a window vfunc that the menu can set.  And we need the
+	 * time. *//*
+
+	menu->func(window->parent, menu->current, window->parent->user_data);
+	input_ungrab(menu->input);
+	menu_destroy(menu);/**/
+}
+
+
+static const struct wl_shell_surface_listener xwl_shell_surface_listener = {
+	xwl_shell_handle_configure,
+	xwl_shell_handle_popup_done
+};
+
 static void
 free_pixmap(void *data, struct wl_callback *callback, uint32_t time)
 {
@@ -77,7 +114,28 @@ xwl_window_attach(struct xwl_window *xwl_window, PixmapPtr pixmap)
 	return;
     }
 
+	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_window_attach\n");
     wl_surface_attach(xwl_window->surface, xwl_window->buffer, 0, 0);
+    
+	struct wl_region *input_region = wl_compositor_create_region(xwl_screen->compositor);
+	wl_region_add(input_region, 0, 0, 182, 182);
+	
+	
+	if (input_region) {
+		wl_surface_set_input_region(xwl_window->surface, input_region);
+		wl_region_destroy(input_region);
+		input_region = NULL;
+	}
+	
+	struct wl_region *opaque_region = wl_compositor_create_region(xwl_screen->compositor);
+	wl_region_add(opaque_region, 0, 0, 182, 182);
+	
+	if (opaque_region) {
+		wl_surface_set_opaque_region(xwl_window->surface, opaque_region);
+		wl_region_destroy(opaque_region);
+		opaque_region = NULL;
+	}
+	
     wl_surface_damage(xwl_window->surface, 0, 0,
 		      pixmap->drawable.width,
 		      pixmap->drawable.height);
@@ -114,6 +172,8 @@ xwl_create_window(WindowPtr window)
     rc = AddSelection(&selection, name, serverClient);
     if (rc != Success)
 	return ret;
+
+
 
     selection->lastTimeChanged = currentTime;
     selection->window = window->drawable.id;
@@ -163,6 +223,7 @@ static Bool
 xwl_realize_window(WindowPtr window)
 {
     ScreenPtr screen = window->drawable.pScreen;
+	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window\n");
     struct xwl_screen *xwl_screen;
     struct xwl_window *xwl_window;
     Bool ret;
@@ -174,47 +235,78 @@ xwl_realize_window(WindowPtr window)
     xwl_screen->RealizeWindow = xwl_screen->RealizeWindow;
     screen->RealizeWindow = xwl_realize_window;
 
+	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A2\n");
     if (xwl_screen->flags & XWL_FLAGS_ROOTLESS) {
-	if (window->redirectDraw != RedirectDrawManual)
-	    return ret;
+	if (window->redirectDraw != RedirectDrawManual) {
+		xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window ret 0\n");
+		return ret;
+	}
     } else {
-	if (window->parent)
+	if (window->parent) {
+		xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window ret 1\n");
 	    return ret;
+	}
     }
 
+	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A3\n");
     xwl_window = calloc(sizeof *xwl_window, 1);
     xwl_window->xwl_screen = xwl_screen;
     xwl_window->window = window;
-    xwl_window->surface =
-	wl_compositor_create_surface(xwl_screen->compositor);
+    xwl_window->surface = wl_compositor_create_surface(xwl_screen->compositor);
+	
+	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A4\n");
     if (xwl_window->surface == NULL) {
 	ErrorF("wl_display_create_surface failed\n");
+	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window ret 2\n");
 	return FALSE;
     }
 
+	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A5\n");
     if (xwl_screen->xorg_server)
 	xserver_set_window_id(xwl_screen->xorg_server,
 			      xwl_window->surface, window->drawable.id);
 
-    /* we need to wait in order to avoid a race with Weston WM, when it would
-     * try to anticipate XCB_MAP_NOTIFY, requiring create_surface completed
-     * (for shell_surface_set_toplevel) */
-    wl_display_roundtrip(xwl_screen->display);
+	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A6\n");
+	/* we need to wait in order to avoid a race with Weston WM, when it would
+	* try to anticipate XCB_MAP_NOTIFY, requiring create_surface completed
+	* (for shell_surface_set_toplevel) */
+	wl_display_roundtrip(xwl_screen->display);
 
+	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A7\n");
     wl_surface_set_user_data(xwl_window->surface, xwl_window);
     xwl_window_attach(xwl_window, (*screen->GetWindowPixmap)(window));
 
+    
+	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A8\n");
     dixSetPrivate(&window->devPrivates,
 		  &xwl_window_private_key, xwl_window);
 
+	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A9\n");
     xwl_window->damage =
 	DamageCreate(damage_report, damage_destroy, DamageReportNonEmpty,
 		     FALSE, screen, xwl_window);
     DamageRegister(&window->drawable, xwl_window->damage);
 
+	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A10\n");
     xorg_list_add(&xwl_window->link, &xwl_screen->window_list);
     xorg_list_init(&xwl_window->link_damage);
-
+	
+	if (xwl_screen->shell) {
+		xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A666\n");
+		xwl_window->shsurf = wl_shell_get_shell_surface (xwl_screen->shell, xwl_window->surface);
+		
+		if (xwl_window->shsurf) {
+		xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A333\n");
+			wl_shell_surface_set_user_data(xwl_window->shsurf, xwl_window);
+			wl_shell_surface_add_listener(xwl_window->shsurf, &xwl_shell_surface_listener, xwl_window);
+		}
+		wl_shell_surface_set_toplevel(xwl_window->shsurf);
+		
+	}
+//	xwl_window_attach(xwl_window, (*screen->GetWindowPixmap)(window));
+	wl_surface_attach(xwl_window->surface, xwl_window->buffer, 0, 0);
+	
+	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window ret 3\n");
     return ret;
 }
 

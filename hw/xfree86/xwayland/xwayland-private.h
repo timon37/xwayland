@@ -29,6 +29,7 @@
 struct xwl_window {
     struct xwl_screen		*xwl_screen;
     struct wl_surface		*surface;
+    struct wl_shell_surface	*shsurf;
     struct wl_buffer		*buffer;
     WindowPtr			 window;
     DamagePtr			 damage;
@@ -47,6 +48,7 @@ struct xwl_screen {
     struct xwl_output		*xwl_output;
     struct wl_display		*display;
     struct wl_compositor	*compositor;
+    struct wl_shell		*shell;
     struct wl_global_listener   *global_listener;
     struct wl_global_listener   *drm_listener;
     struct wl_global_listener   *input_listener;
