@@ -52,6 +52,8 @@
  *  - active grabs, grab owner crack
  */
 
+#define xf86DrvMsgVerb(...)	do{}while(0);
+
 static DevPrivateKeyRec xwl_screen_private_key;
 static Atom xdnd_atom;
 
@@ -275,6 +277,7 @@ int
 xwl_create_window_buffer_shm(struct xwl_window *xwl_window,
 			     PixmapPtr pixmap, int fd)
 {
+	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s\n", __FUNCTION__);
     VisualID visual;
     uint32_t format;
     WindowPtr window = xwl_window->window;
@@ -299,6 +302,7 @@ xwl_create_window_buffer_shm(struct xwl_window *xwl_window,
 			   pixmap->drawable.width * 4, format);
     wl_shm_pool_destroy(pool);
 
+	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s E\n", __FUNCTION__);
     return xwl_window->buffer ? Success : BadDrawable;
 }
 
@@ -348,6 +352,7 @@ void xwl_screen_destroy(struct xwl_screen *xwl_screen)
 /* DDX driver must call this after submitting the rendering */
 void xwl_screen_post_damage(struct xwl_screen *xwl_screen)
 {
+//	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s\n", __FUNCTION__);
     struct xwl_window *xwl_window;
     RegionPtr region;
     BoxPtr box;
@@ -369,6 +374,7 @@ void xwl_screen_post_damage(struct xwl_screen *xwl_screen)
     }
 
     xorg_list_init(&xwl_screen->damage_window_list);
+//	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s E\n", __FUNCTION__);
 }
 
 static pointer
