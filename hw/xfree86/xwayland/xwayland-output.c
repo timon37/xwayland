@@ -264,7 +264,7 @@ display_handle_mode(void *data,
 {
     struct xwl_output *xwl_output = data;
 
-    xwl_output->width = width;
+    xwl_output->width = width*2;
     xwl_output->height = height;
 
     xwl_output->xwl_screen->width = width;

@@ -45,8 +45,6 @@
 
 static DevPrivateKeyRec xwl_window_private_key;
 
-#define xf86DrvMsgVerb(...)	do{}while(0);
-
 static void
 xwl_shell_handle_configure(void *data, struct wl_shell_surface *shell_surface, uint32_t edges, int32_t width, int32_t height)
 {
@@ -166,7 +164,10 @@ xwl_window_attach(struct xwl_window *xwl_window, PixmapPtr pixmap)
 static Bool
 xwl_create_window(WindowPtr window)
 {
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s\n", __FUNCTION__);
+	printf ("AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE euhtoauhetonsuahtonsuehotaues \n");
+	xf86DrvMsgVerb(0, X_INFO, 0, "@@@@@@@@@@@@@@@@@@@@@@@@@@@ euhtoauhetonsuahtonsuehotaues\n");
+	xf86DrvMsgVerb(0, X_ERROR, 0, "@@@@@@@@@@@@@@@@@@@@@@@@@@@ euhtoauhetonsuahtonsuehotaues\n");
+	dHackP ("window id %d", window->drawable.id);
     ScreenPtr screen = window->drawable.pScreen;
     struct xwl_screen *xwl_screen;
     Selection *selection;
@@ -182,10 +183,10 @@ xwl_create_window(WindowPtr window)
     xwl_screen->CreateWindow = screen->CreateWindow;
     screen->CreateWindow = xwl_create_window;
 
-    if (!(xwl_screen->flags & XWL_FLAGS_ROOTLESS) ||
-	window->parent != NULL)
+    if (!(xwl_screen->flags & XWL_FLAGS_ROOTLESS) || window->parent != NULL) {
+	dHackP ("E window->parent != NULL");
 	return ret;
-
+	}
     len = snprintf(buffer, sizeof buffer, "_NET_WM_CM_S%d", screen->myNum);
     name = MakeAtom(buffer, len, TRUE);
     rc = AddSelection(&selection, name, serverClient);
@@ -201,13 +202,13 @@ xwl_create_window(WindowPtr window)
 
     CompositeRedirectSubwindows(window, CompositeRedirectManual);
 
+	dHackP ("E");
     return ret;
 }
 
 static int
 xwl_destroy_window (WindowPtr window)
 {
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s\n", __FUNCTION__);
     ScreenPtr screen = window->drawable.pScreen;
     struct xwl_screen *xwl_screen;
     Bool ret;
@@ -245,8 +246,8 @@ damage_destroy(DamagePtr pDamage, void *data)
 static Bool
 xwl_realize_window(WindowPtr window)
 {
+	dHackP ("window id %d\n", window->drawable.id);
 	ScreenPtr screen = window->drawable.pScreen;
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window\n");
 	struct xwl_screen *xwl_screen;
 	struct xwl_window *xwl_window;
 	Bool ret;
@@ -258,37 +259,33 @@ xwl_realize_window(WindowPtr window)
 	xwl_screen->RealizeWindow = xwl_screen->RealizeWindow;
 	screen->RealizeWindow = xwl_realize_window;
 	
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A2\n");
 	if (xwl_screen->flags & XWL_FLAGS_ROOTLESS) {
 		if (window->redirectDraw != RedirectDrawManual) {
-			xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window ret 0\n");
+			dHackP ("E  != RedirectDrawManual");
 			return ret;
 		}
 	} else {
 		if (window->parent) {
-			xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window ret 1\n");
+			dHackP ("E  window->parent");
 			return ret;
 		}
 	}
 	
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A3\n");
 	xwl_window = calloc(sizeof *xwl_window, 1);
 	xwl_window->xwl_screen = xwl_screen;
 	xwl_window->window = window;
 	xwl_window->surface = wl_compositor_create_surface(xwl_screen->compositor);
 	
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A4\n");
 	if (xwl_window->surface == NULL) {
 		ErrorF("wl_display_create_surface failed\n");
-		xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window ret 2\n");
 		return FALSE;
 	}
 
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A5\n");
-	if (xwl_screen->xorg_server)
+	if (xwl_screen->xorg_server) {
+		dHackP ("E  xserver_set_window_id");
 		xserver_set_window_id(xwl_screen->xorg_server, xwl_window->surface, window->drawable.id);
+	}
 	
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A6\n");
 	/* we need to wait in order to avoid a race with Weston WM, when it would
 	* try to anticipate XCB_MAP_NOTIFY, requiring create_surface completed
 	* (for shell_surface_set_toplevel) */
@@ -296,28 +293,24 @@ xwl_realize_window(WindowPtr window)
 	xwl_window_attach(xwl_window, (*screen->GetWindowPixmap)(window));
 //	wl_display_roundtrip(xwl_screen->display);
 	
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A7\n");
 	wl_surface_set_user_data(xwl_window->surface, xwl_window);
 	
 	
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A8\n");
 	dixSetPrivate(&window->devPrivates, &xwl_window_private_key, xwl_window);
 	
 	
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A9\n");
 	xwl_window->damage = DamageCreate(damage_report, damage_destroy, DamageReportNonEmpty, FALSE, screen, xwl_window);
 	DamageRegister(&window->drawable, xwl_window->damage);
 
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A10\n");
 	xorg_list_add(&xwl_window->link, &xwl_screen->window_list);
 	xorg_list_init(&xwl_window->link_damage);
 	
 	if (xwl_screen->shell) {
-		xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A666\n");
+		dHackP ("xwl_screen->shell");
 		xwl_window->shsurf = wl_shell_get_shell_surface (xwl_screen->shell, xwl_window->surface);
 		
 		if (xwl_window->shsurf) {
-			xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window  A333\n");
+			dHackP ("wl_shell_surface_set_user_data");
 		//	wl_shell_surface_set_user_data(xwl_window->shsurf, xwl_window);
 		//	wl_shell_surface_add_listener(xwl_window->shsurf, &xwl_shell_surface_listener, xwl_window);
 		}
@@ -328,14 +321,13 @@ xwl_realize_window(WindowPtr window)
 	wl_surface_attach(xwl_window->surface, xwl_window->buffer, 0, 0);
 	
 //	wl_display_roundtrip(xwl_screen->display);
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_realize_window ret 3\n");
+	dHackP ("E");
     return ret;
 }
 
 static Bool
 xwl_unrealize_window(WindowPtr window)
 {
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s\n", __FUNCTION__);
     ScreenPtr screen = window->drawable.pScreen;
     struct xwl_screen *xwl_screen;
     struct xwl_window *xwl_window;

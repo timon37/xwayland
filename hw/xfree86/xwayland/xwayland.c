@@ -52,8 +52,6 @@
  *  - active grabs, grab owner crack
  */
 
-#define xf86DrvMsgVerb(...)	do{}while(0);
-
 static DevPrivateKeyRec xwl_screen_private_key;
 static Atom xdnd_atom;
 
@@ -85,13 +83,11 @@ xwl_input_delayed_init(void *data, struct wl_callback *callback, uint32_t time)
     wl_callback_destroy(callback);
     xwl_input_init(xwl_screen);
 
-    id = wl_display_get_global(xwl_screen->display, "xserver", 1);
-    if (id != 0) {
-        xwl_screen->xorg_server = wl_display_bind(xwl_screen->display,
-						  id, &xserver_interface);
-	xserver_add_listener(xwl_screen->xorg_server,
-			     &xserver_listener, xwl_screen);
-    }
+//    id = wl_display_get_global(xwl_screen->display, "xserver", 1);
+//    if (id != 0) {
+//	xwl_screen->xorg_server = wl_display_bind(xwl_screen->display, id, &xserver_interface);
+	xserver_add_listener(xwl_screen->xorg_server, &xserver_listener, xwl_screen);
+//    }
 }
 
 static const struct wl_callback_listener delayed_init_listner = {
@@ -258,8 +254,7 @@ xwl_screen_pre_init(ScrnInfoPtr scrninfo,
     /* Process connection events. */
     wl_display_iterate(xwl_screen->display, WL_DISPLAY_READABLE);
 
-    xwl_screen->wayland_fd =
-	wl_display_get_fd(xwl_screen->display, source_update, xwl_screen);
+    xwl_screen->wayland_fd = wl_display_get_fd(xwl_screen->display, source_update, xwl_screen);
 
 #ifdef WITH_LIBDRM
     if (xwl_screen->driver->use_drm)
