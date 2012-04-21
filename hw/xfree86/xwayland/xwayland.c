@@ -80,9 +80,12 @@ xwl_input_delayed_init(void *data, struct wl_callback *callback, uint32_t time)
 
     ErrorF("xwl_input_delayed_init\n");
 
-    wl_callback_destroy(callback);
+//    wl_callback_destroy(callback);
     xwl_input_init(xwl_screen);
+//     TimerFree(timer);
 
+    ErrorF("xwl_input_delayed_init ret\n");
+	return 0;
 //    id = wl_display_get_global(xwl_screen->display, "xserver", 1);
 //    if (id != 0) {
 //	xwl_screen->xorg_server = wl_display_bind(xwl_screen->display, id, &xserver_interface);
@@ -104,13 +107,16 @@ global_handler(struct wl_display *display,
     struct xwl_screen *xwl_screen = data;
 
     if (strcmp (interface, "wl_compositor") == 0) {
+	    dHackP ("wl_compositor");
 	xwl_screen->compositor =
 		wl_display_bind(xwl_screen->display,
 				id, &wl_compositor_interface);
     } else if (strcmp (interface, "wl_shm") == 0) {
+	    dHackP ("wl_shm");
         xwl_screen->shm = wl_display_bind(xwl_screen->display,
 					  id, &wl_shm_interface);
     } else if (strcmp (interface, "wl_shell") == 0) {
+	    dHackP ("wl_shell");
 		xwl_screen->shell = wl_display_bind(xwl_screen->display, id, &wl_shell_interface);
     }
 }
@@ -213,6 +219,7 @@ struct xwl_screen *
 xwl_screen_pre_init(ScrnInfoPtr scrninfo,
 		    uint32_t flags, struct xwl_driver *driver)
 {
+	dHackP ();
     struct xwl_screen *xwl_screen;
     int ret;
 
@@ -265,6 +272,7 @@ xwl_screen_pre_init(ScrnInfoPtr scrninfo,
 
     xwayland_screen_preinit_output(xwl_screen, scrninfo);
 
+	dHackP ();
     return xwl_screen;
 }
 

@@ -281,10 +281,10 @@ xwl_realize_window(WindowPtr window)
 		return FALSE;
 	}
 
-	if (xwl_screen->xorg_server) {
-		dHackP ("E  xserver_set_window_id");
-		xserver_set_window_id(xwl_screen->xorg_server, xwl_window->surface, window->drawable.id);
-	}
+//	if (xwl_screen->xorg_server) {
+//		dHackP ("E  xserver_set_window_id");
+//		xserver_set_window_id(xwl_screen->xorg_server, xwl_window->surface, window->drawable.id);
+//	}
 	
 	/* we need to wait in order to avoid a race with Weston WM, when it would
 	* try to anticipate XCB_MAP_NOTIFY, requiring create_surface completed

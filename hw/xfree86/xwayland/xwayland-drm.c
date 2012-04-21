@@ -93,6 +93,7 @@ drm_handler(struct wl_display *display,
 int
 xwl_drm_pre_init(struct xwl_screen *xwl_screen)
 {
+	dHackP();
     uint32_t magic;
 
     xwl_screen->drm_listener =
@@ -101,17 +102,18 @@ xwl_drm_pre_init(struct xwl_screen *xwl_screen)
 
     wl_display_roundtrip(xwl_screen->display);
 
-    ErrorF("wayland_drm_screen_init, device name %s\n",
-	   xwl_screen->device_name);
+    ErrorF("wayland_drm_screen_init, device name %s\n", xwl_screen->device_name);
 
     xwl_screen->drm_fd = open(xwl_screen->device_name, O_RDWR);
     if (xwl_screen->drm_fd < 0) {
 	ErrorF("failed to open the drm fd\n");
+	dHackP("BadAccess0");
 	return BadAccess;
     }
 
     if (drmGetMagic(xwl_screen->drm_fd, &magic)) {
 	ErrorF("failed to get drm magic");
+	dHackP("BadAccess1");
 	return BadAccess;
     }
 
@@ -123,9 +125,11 @@ xwl_drm_pre_init(struct xwl_screen *xwl_screen)
 
     if (!xwl_screen->authenticated) {
 	ErrorF("Failed to auth drm fd\n");
+	dHackP("BadAccess2");
 	return BadAccess;
     }
 
+    dHackP("Success");
     return Success;
 }
 
