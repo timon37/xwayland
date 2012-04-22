@@ -59,12 +59,24 @@ void		winMWExtWMResizeXWindow			(WindowPtr pWin, int w, int h)
 static void
 xwl_shell_handle_configure(void *data, struct wl_shell_surface *shell_surface, uint32_t edges, int32_t width, int32_t height)
 {
+	dHackP("data 0x%lx wh %d %d", data, width, height);
 	struct xwl_window *xwl_window = data;
 	dHackP("wh %d %d", width, height);
 	if (width <= 0 || height <= 0)
 		return;
 	
-	winMWExtWMResizeXWindow (xwl_window->window, width, height);
+	dHackP("shell_surface 0x%lx window 0x%lx", shell_surface, xwl_window->window);
+	dHackP("window id %d", xwl_window->window->drawable.id);
+	
+	return;
+//	winMWExtWMResizeXWindow (xwl_window->window, width, height);
+	
+	CARD32 *vlist = malloc(sizeof(CARD32)*2);
+	
+	vlist[0] = width;
+	vlist[1] = height;
+	ConfigureWindow (xwl_window->window, CWWidth | CWHeight, vlist, wClient(xwl_window->window));
+	free(vlist);
 	
 /*	XWindowChanges wc;
 	
@@ -184,9 +196,6 @@ xwl_window_attach(struct xwl_window *xwl_window, PixmapPtr pixmap)
 static Bool
 xwl_create_window(WindowPtr window)
 {
-	printf ("AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE euhtoauhetonsuahtonsuehotaues \n");
-	xf86DrvMsgVerb(0, X_INFO, 0, "@@@@@@@@@@@@@@@@@@@@@@@@@@@ euhtoauhetonsuahtonsuehotaues\n");
-	xf86DrvMsgVerb(0, X_ERROR, 0, "@@@@@@@@@@@@@@@@@@@@@@@@@@@ euhtoauhetonsuahtonsuehotaues\n");
 	dHackP ("window id %d", window->drawable.id);
     ScreenPtr screen = window->drawable.pScreen;
     struct xwl_screen *xwl_screen;
@@ -339,6 +348,8 @@ xwl_realize_window(WindowPtr window)
 	if (xwl_screen->shell) {
 		dHackP ("xwl_screen->shell");
 		xwl_window->shsurf = wl_shell_get_shell_surface (xwl_screen->shell, xwl_window->surface);
+		dHackP ("xwl_window 0x%lx", xwl_window);
+		dHackP ("xwl_screen->shell 0x%lx", xwl_window->shsurf);
 		
 		if (xwl_window->shsurf) {
 			dHackP ("wl_shell_surface_set_user_data");

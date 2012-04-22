@@ -266,6 +266,8 @@ display_handle_mode(void *data,
 
     xwl_output->width = width*4;
     xwl_output->height = height*2;
+    xwl_output->width = 2048;
+    xwl_output->height = 2048;
 
     xwl_output->xwl_screen->width = width;
     xwl_output->xwl_screen->height = height;
