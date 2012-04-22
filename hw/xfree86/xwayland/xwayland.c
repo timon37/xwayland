@@ -361,8 +361,7 @@ void xwl_screen_post_damage(struct xwl_screen *xwl_screen)
     BoxPtr box;
     int count, i;
 
-    xorg_list_for_each_entry(xwl_window, &xwl_screen->damage_window_list,
-			     link_damage) {
+    xorg_list_for_each_entry(xwl_window, &xwl_screen->damage_window_list, link_damage) {
 
 	region = DamageRegion(xwl_window->damage);
 	count = RegionNumRects(region);

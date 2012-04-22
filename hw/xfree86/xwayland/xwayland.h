@@ -74,7 +74,6 @@ extern _X_EXPORT int
 xwl_create_window_buffer_shm(struct xwl_window *xwl_window,
 			     PixmapPtr pixmap, int fd);
 
-#define	dHackP(fmt,...)	xf86DrvMsgVerb(0, X_INFO, 0, "@@@@@@@@@@@@@@@@@@@@@@@@@@@ %s:	" fmt "\n", __FUNCTION__, ## __VA_ARGS__)
-
+#define dHackP(fmt,...)	xf86DrvMsgVerb(0, X_INFO, 0, "@@@@@@@@@@@@@@@@@@@@@@@@@@@ %s:	" fmt "\n", __FUNCTION__, ## __VA_ARGS__)
 
 #endif /* _XWAYLAND_H_ */

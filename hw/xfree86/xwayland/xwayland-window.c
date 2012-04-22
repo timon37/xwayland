@@ -45,15 +45,53 @@
 
 static DevPrivateKeyRec xwl_window_private_key;
 
+void		winMWExtWMResizeXWindow			(WindowPtr pWin, int w, int h)
+{
+	CARD32 *vlist = malloc(sizeof(CARD32)*2);
+	
+	vlist[0] = w;
+	vlist[1] = h;
+	ConfigureWindow (pWin, CWWidth | CWHeight, vlist, wClient(pWin));
+	free(vlist);
+}
+
+
 static void
 xwl_shell_handle_configure(void *data, struct wl_shell_surface *shell_surface, uint32_t edges, int32_t width, int32_t height)
 {
+	dHackP("data 0x%lx wh %d %d", data, width, height);
 	struct xwl_window *xwl_window = data;
-	
-	printf ("HAUHTEONSUHETONSUHTENSOUHTEOTNSUHEOTNSUHTEOSUHTNSEOU %d %d\n", width, height);
-	
 	if (width <= 0 || height <= 0)
 		return;
+	
+	dHackP("shell_surface 0x%lx window 0x%lx", shell_surface, xwl_window->window);
+	dHackP("window id %d", xwl_window->window->drawable.id);
+//	winMWExtWMResizeXWindow (xwl_window->window, width, height);
+	
+	CARD32 *vlist = malloc(sizeof(CARD32)*2);
+	
+	vlist[0] = width;
+	vlist[1] = height;
+	ConfigureWindow (xwl_window->window, CWWidth | CWHeight, vlist, wClient(xwl_window->window));
+	free(vlist);
+	
+/*	XWindowChanges wc;
+	
+	c->oldx = c->x;
+	c->x = wc.x = x;
+	c->oldy = c->y;
+	c->y = wc.y = y;
+	c->oldw = c->w;
+	c->w = wc.width = w;
+	c->oldh = c->h;
+	c->h = wc.height = h;
+	wc.border_width = c->bw;
+	XConfigureWindow(dpy, c->win, CWX|CWY|CWWidth|CWHeight|CWBorderWidth, &wc);
+	Client_StructureNotifySend(c);
+	XSync(dpy, False);
+	*/
+	
+//	int ret =  ConfigureWindow(xwl_window->window, Mask /*mask*/, XID* /*vlist*/, ClientPtr /*client*/);
 	
 //	xwl_window->resize_edges = edges;
 //	window_schedule_resize(xwl_window, width, height);
@@ -61,7 +99,7 @@ xwl_shell_handle_configure(void *data, struct wl_shell_surface *shell_surface, u
 static void
 xwl_shell_handle_popup_done(void *data, struct wl_shell_surface *shell_surface)
 {
-	printf ("HAUHTEONSUHETONSUHTENSOUHTEOTNSUHEOTNSUHTEOSUHTNSEOU xwl_shell_handle_popup_done\n");
+//	printf ("HAUHTEONSUHETONSUHTENSOUHTEOTNSUHEOTNSUHTEOSUHTNSEOU xwl_shell_handle_popup_done\n");
 /*	struct window *window = data;
 	struct menu *menu = window->widget->user_data;
 
@@ -75,8 +113,15 @@ xwl_shell_handle_popup_done(void *data, struct wl_shell_surface *shell_surface)
 	menu_destroy(menu);/**/
 }
 
+static void
+xwl_shell_handle_ping(void *data, struct wl_shell_surface *shell_surface,
+							uint32_t serial)
+{
+	wl_shell_surface_pong(shell_surface, serial);
+}
 
 static const struct wl_shell_surface_listener xwl_shell_surface_listener = {
+	xwl_shell_handle_ping,
 	xwl_shell_handle_configure,
 	xwl_shell_handle_popup_done
 };
@@ -84,12 +129,12 @@ static const struct wl_shell_surface_listener xwl_shell_surface_listener = {
 static void
 free_pixmap(void *data, struct wl_callback *callback, uint32_t time)
 {
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  free_pixmap\n");
-    PixmapPtr pixmap = data;
-    ScreenPtr screen = pixmap->drawable.pScreen;
-
-    (*screen->DestroyPixmap)(pixmap);
-    wl_callback_destroy(callback);
+//	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  free_pixmap\n");
+//	PixmapPtr pixmap = data;
+//	ScreenPtr screen = pixmap->drawable.pScreen;
+	
+//	(*screen->DestroyPixmap)(pixmap);
+//	wl_callback_destroy(callback);
 }
 
 static const struct wl_callback_listener free_pixmap_listener = {
@@ -99,66 +144,50 @@ static const struct wl_callback_listener free_pixmap_listener = {
 static void
 xwl_window_attach(struct xwl_window *xwl_window, PixmapPtr pixmap)
 {
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s %lx\n", __FUNCTION__, pixmap);
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %d %d\n", pixmap->drawable.width, pixmap->drawable.height);
 	struct xwl_screen *xwl_screen = xwl_window->xwl_screen;
 	struct wl_callback *callback;
 	
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_window_attach -4\n");
 	/* We can safely destroy the buffer because we only use one buffer
 	* per surface in xwayland model */
 	if (xwl_window->buffer)
 		wl_buffer_destroy(xwl_window->buffer);
 	
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_window_attach -3\n");
 	
 	xwl_screen->driver->create_window_buffer(xwl_window, pixmap);
-	
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_window_attach -2\n");
 	
 	if (!xwl_window->buffer) {
 		ErrorF("failed to create buffer\n");
 		return;
 	}
 	
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_window_attach -1\n");
 	wl_surface_attach(xwl_window->surface, xwl_window->buffer, 0, 0);
 	
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  input_region\n");
 	struct wl_region *input_region = wl_compositor_create_region(xwl_screen->compositor);
 	wl_region_add(input_region, 0, 0, pixmap->drawable.width, pixmap->drawable.height);
-	
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_window_attach 0\n");
 	
 	if (input_region) {
 		wl_surface_set_input_region(xwl_window->surface, input_region);
 		wl_region_destroy(input_region);
 		input_region = NULL;
 	}
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_window_attach 1\n");
 	
 	struct wl_region *opaque_region = wl_compositor_create_region(xwl_screen->compositor);
 	wl_region_add(opaque_region, 0, 0, pixmap->drawable.width, pixmap->drawable.height);
-	
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_window_attach 2\n");
 	
 	if (opaque_region) {
 		wl_surface_set_opaque_region(xwl_window->surface, opaque_region);
 		wl_region_destroy(opaque_region);
 		opaque_region = NULL;
 	}
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_window_attach 3\n");
 	
 	wl_surface_damage(xwl_window->surface, 0, 0,
 			pixmap->drawable.width,
 			pixmap->drawable.height);
 	
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_window_attach 4\n");
 	
 	callback = wl_display_sync(xwl_screen->display);
 	wl_callback_add_listener(callback, &free_pixmap_listener, pixmap);
 	pixmap->refcnt++;
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  xwl_window_attach 5\n");
 }
 
 static Bool
@@ -183,6 +212,22 @@ xwl_create_window(WindowPtr window)
     xwl_screen->CreateWindow = screen->CreateWindow;
     screen->CreateWindow = xwl_create_window;
 
+	struct xwl_window * xwl_window = calloc(sizeof *xwl_window, 1);
+	xwl_window->xwl_screen = xwl_screen;
+	xwl_window->window = window;
+	xwl_window->surface = wl_compositor_create_surface(xwl_screen->compositor);
+	
+	if (xwl_window->surface == NULL) {
+		ErrorF("wl_display_create_surface failed\n");
+		return FALSE;
+	}
+	xorg_list_add(&xwl_window->link, &xwl_screen->window_list);
+	xorg_list_init(&xwl_window->link_damage);
+	
+	wl_surface_set_user_data(xwl_window->surface, xwl_window);
+	dixSetPrivate(&window->devPrivates, &xwl_window_private_key, xwl_window);
+	
+	
     if (!(xwl_screen->flags & XWL_FLAGS_ROOTLESS) || window->parent != NULL) {
 	dHackP ("E window->parent != NULL");
 	return ret;
@@ -209,21 +254,32 @@ xwl_create_window(WindowPtr window)
 static int
 xwl_destroy_window (WindowPtr window)
 {
-    ScreenPtr screen = window->drawable.pScreen;
-    struct xwl_screen *xwl_screen;
-    Bool ret;
-
-    if (window->parent == NULL)
-	CompositeUnRedirectSubwindows (window, CompositeRedirectManual);
-
-    xwl_screen = xwl_screen_get(screen);
-
-    screen->DestroyWindow = xwl_screen->DestroyWindow;
-    ret = (*screen->DestroyWindow)(window);
-    xwl_screen->DestroyWindow = screen->DestroyWindow;
-    screen->DestroyWindow = xwl_destroy_window;
-
-    return ret;
+	ScreenPtr screen = window->drawable.pScreen;
+	struct xwl_screen *xwl_screen;
+	Bool ret;
+	
+	if (window->parent == NULL)
+		CompositeUnRedirectSubwindows (window, CompositeRedirectManual);
+	
+	xwl_screen = xwl_screen_get(screen);
+	
+	screen->DestroyWindow = xwl_screen->DestroyWindow;
+	ret = (*screen->DestroyWindow)(window);
+	xwl_screen->DestroyWindow = screen->DestroyWindow;
+	screen->DestroyWindow = xwl_destroy_window;
+	
+	struct xwl_window *xwl_window = dixLookupPrivate(&window->devPrivates, &xwl_window_private_key);
+	
+	wl_surface_destroy(xwl_window->surface);
+	xorg_list_del(&xwl_window->link);
+	xorg_list_del(&xwl_window->link_damage);
+	
+	dixSetPrivate(&window->devPrivates, &xwl_window_private_key, NULL);
+	
+	free(xwl_window);
+	
+	
+	return ret;
 }
 
 static void
@@ -233,7 +289,9 @@ damage_report(DamagePtr pDamage, RegionPtr pRegion, void *data)
 	struct xwl_window *xwl_window = data;
 	struct xwl_screen *xwl_screen = xwl_window->xwl_screen;
 	
+//	dHackP();
 	xorg_list_add(&xwl_window->link_damage, &xwl_screen->damage_window_list);
+//	dHackP("E");
 	
 //	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s E\n", __FUNCTION__);
 }
@@ -270,8 +328,16 @@ xwl_realize_window(WindowPtr window)
 			return ret;
 		}
 	}
-	
-	xwl_window = calloc(sizeof *xwl_window, 1);
+	xwl_window = dixLookupPrivate(&window->devPrivates, &xwl_window_private_key);
+	if (!xwl_window) {
+		ErrorF("xwl_realize_window dixLookupPrivate failed\n");
+		return FALSE;
+	}
+	if (xwl_window->surface == NULL) {
+		ErrorF("xwl_realize_window !xwl_window->surface\n");
+		return FALSE;
+	}
+/*	xwl_window = calloc(sizeof *xwl_window, 1);
 	xwl_window->xwl_screen = xwl_screen;
 	xwl_window->window = window;
 	xwl_window->surface = wl_compositor_create_surface(xwl_screen->compositor);
@@ -280,7 +346,9 @@ xwl_realize_window(WindowPtr window)
 		ErrorF("wl_display_create_surface failed\n");
 		return FALSE;
 	}
-
+	wl_surface_set_user_data(xwl_window->surface, xwl_window);
+	dixSetPrivate(&window->devPrivates, &xwl_window_private_key, xwl_window);*/
+	
 //	if (xwl_screen->xorg_server) {
 //		dHackP ("E  xserver_set_window_id");
 //		xserver_set_window_id(xwl_screen->xorg_server, xwl_window->surface, window->drawable.id);
@@ -289,32 +357,52 @@ xwl_realize_window(WindowPtr window)
 	/* we need to wait in order to avoid a race with Weston WM, when it would
 	* try to anticipate XCB_MAP_NOTIFY, requiring create_surface completed
 	* (for shell_surface_set_toplevel) */
-	wl_display_roundtrip(xwl_screen->display);
-	xwl_window_attach(xwl_window, (*screen->GetWindowPixmap)(window));
 //	wl_display_roundtrip(xwl_screen->display);
+//	wl_display_flush(xwl_screen->display);
 	
-	wl_surface_set_user_data(xwl_window->surface, xwl_window);
+	dHackP ("xwl_window_attach");
+	xwl_window_attach(xwl_window, (*screen->GetWindowPixmap)(window));
+	dHackP ("xwl_window_attach A");
+	
+//	wl_display_roundtrip(xwl_screen->display);
+//	wl_display_flush(xwl_screen->display);
 	
 	
-	dixSetPrivate(&window->devPrivates, &xwl_window_private_key, xwl_window);
 	
+	dHackP ("9");
+	
+	dHackP ("10");
 	
 	xwl_window->damage = DamageCreate(damage_report, damage_destroy, DamageReportNonEmpty, FALSE, screen, xwl_window);
 	DamageRegister(&window->drawable, xwl_window->damage);
 
-	xorg_list_add(&xwl_window->link, &xwl_screen->window_list);
-	xorg_list_init(&xwl_window->link_damage);
+	dHackP ("11");
+//	xorg_list_add(&xwl_window->link, &xwl_screen->window_list);
+//	xorg_list_init(&xwl_window->link_damage);
 	
 	if (xwl_screen->shell) {
 		dHackP ("xwl_screen->shell");
 		xwl_window->shsurf = wl_shell_get_shell_surface (xwl_screen->shell, xwl_window->surface);
+		dHackP ("xwl_window 0x%lx", xwl_window);
+		dHackP ("xwl_screen->shell 0x%lx", xwl_window->shsurf);
 		
 		if (xwl_window->shsurf) {
 			dHackP ("wl_shell_surface_set_user_data");
-		//	wl_shell_surface_set_user_data(xwl_window->shsurf, xwl_window);
-		//	wl_shell_surface_add_listener(xwl_window->shsurf, &xwl_shell_surface_listener, xwl_window);
+			wl_shell_surface_set_user_data(xwl_window->shsurf, xwl_window);
+			wl_shell_surface_add_listener(xwl_window->shsurf, &xwl_shell_surface_listener, xwl_window);
 		}
-		wl_shell_surface_set_toplevel(xwl_window->shsurf);
+	//	wl_shell_surface_set_toplevel(xwl_window->shsurf);
+	//	wl_shell_surface_set_transient(xwl_window->shsurf);
+	/*	if (window->parent) {
+			dHackP ("window->parent");
+			struct xwl_window* xwl_parent = dixLookupPrivate(&window->parent->devPrivates, &xwl_window_private_key);
+			if (xwl_parent) {
+				dHackP ("xwl_parent");
+				wl_shell_surface_set_transient(xwl_window->shsurf, xwl_parent->shsurf, window->drawable.x, window->drawable.y, 0);
+			}else
+				wl_shell_surface_set_toplevel(xwl_window->shsurf);
+		}else/**/
+			wl_shell_surface_set_toplevel(xwl_window->shsurf);
 	}
 //	wl_display_roundtrip(xwl_screen->display);
 //	xwl_window_attach(xwl_window, (*screen->GetWindowPixmap)(window));
@@ -328,52 +416,58 @@ xwl_realize_window(WindowPtr window)
 static Bool
 xwl_unrealize_window(WindowPtr window)
 {
-    ScreenPtr screen = window->drawable.pScreen;
-    struct xwl_screen *xwl_screen;
-    struct xwl_window *xwl_window;
-    struct xwl_input_device *xwl_input_device;
-    Bool ret;
+	dHackP ("window id %d\n", window->drawable.id);
+	ScreenPtr screen = window->drawable.pScreen;
+	struct xwl_screen *xwl_screen;
+	struct xwl_window *xwl_window;
+	struct xwl_input_device *xwl_input_device;
+	Bool ret;
 
-    xwl_screen = xwl_screen_get(screen);
+	xwl_screen = xwl_screen_get(screen);
 
-    xorg_list_for_each_entry(xwl_input_device,
-			     &xwl_screen->input_device_list, link) {
-	if (!xwl_input_device->focus_window)
-	    continue ;
-	if (xwl_input_device->focus_window->window == window) {
-	    xwl_input_device->focus_window = NULL;
-	    SetDeviceRedirectWindow(xwl_input_device->pointer, PointerRootWin);
+	xorg_list_for_each_entry(xwl_input_device, &xwl_screen->input_device_list, link) {
+		if (!xwl_input_device->focus_window)
+			continue ;
+		if (xwl_input_device->focus_window->window == window) {
+			xwl_input_device->focus_window = NULL;
+			SetDeviceRedirectWindow(xwl_input_device->pointer, PointerRootWin);
+		}
 	}
-    }
 
-    screen->UnrealizeWindow = xwl_screen->UnrealizeWindow;
-    ret = (*screen->UnrealizeWindow)(window);
-    xwl_screen->UnrealizeWindow = screen->UnrealizeWindow;
-    screen->UnrealizeWindow = xwl_unrealize_window;
+	screen->UnrealizeWindow = xwl_screen->UnrealizeWindow;
+	ret = (*screen->UnrealizeWindow)(window);
+	xwl_screen->UnrealizeWindow = screen->UnrealizeWindow;
+	screen->UnrealizeWindow = xwl_unrealize_window;
 
-    xwl_window =
-	dixLookupPrivate(&window->devPrivates, &xwl_window_private_key);
-    if (!xwl_window)
+	xwl_window = dixLookupPrivate(&window->devPrivates, &xwl_window_private_key);
+	if (!xwl_window)
+		return ret;
+
+	if (xwl_window->shsurf)
+		wl_shell_surface_destroy(xwl_window->shsurf);
+
+	if (xwl_window->buffer)
+		wl_buffer_destroy(xwl_window->buffer);
+	/*
+	wl_surface_destroy(xwl_window->surface);
+	xorg_list_del(&xwl_window->link);
+	xorg_list_del(&xwl_window->link_damage);*/
+
+	if (xwl_window->damage) {
+		DamageUnregister(&window->drawable, xwl_window->damage);
+		DamageDestroy(xwl_window->damage);
+	}
+//	free(xwl_window);
+//	dixSetPrivate(&window->devPrivates, &xwl_window_private_key, NULL);
+	
 	return ret;
-
-    if (xwl_window->buffer)
-	wl_buffer_destroy(xwl_window->buffer);
-    wl_surface_destroy(xwl_window->surface);
-    xorg_list_del(&xwl_window->link);
-    xorg_list_del(&xwl_window->link_damage);
-    DamageUnregister(&window->drawable, xwl_window->damage);
-    DamageDestroy(xwl_window->damage);
-    free(xwl_window);
-    dixSetPrivate(&window->devPrivates, &xwl_window_private_key, NULL);
-
-    return ret;
 }
 
 static void
 xwl_set_window_pixmap(WindowPtr window, PixmapPtr pixmap)
 {
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s %lx\n", __FUNCTION__, pixmap);
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %d %d\n", pixmap->drawable.width, pixmap->drawable.height);
+//	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s %lx\n", __FUNCTION__, pixmap);
+//	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %d %d\n", pixmap->drawable.width, pixmap->drawable.height);
     ScreenPtr screen = window->drawable.pScreen;
     struct xwl_screen *xwl_screen;
     struct xwl_window *xwl_window;
@@ -384,7 +478,7 @@ xwl_set_window_pixmap(WindowPtr window, PixmapPtr pixmap)
     (*screen->SetWindowPixmap)(window, pixmap);
     xwl_screen->SetWindowPixmap = screen->SetWindowPixmap;
     screen->SetWindowPixmap = xwl_set_window_pixmap;
-
+	
     xwl_window =
 	dixLookupPrivate(&window->devPrivates, &xwl_window_private_key);
     if (xwl_window)
