@@ -250,6 +250,8 @@ display_handle_geometry(void *data,
 
     xwl_output->x = x;
     xwl_output->y = y;
+    xwl_output->x = 0;
+    xwl_output->y = 0;
 
     xwl_screen->xwl_output = xwl_output;
 }
@@ -264,8 +266,8 @@ display_handle_mode(void *data,
 {
     struct xwl_output *xwl_output = data;
 
-    xwl_output->width = width*4;
-    xwl_output->height = height*2;
+    xwl_output->width = width;
+    xwl_output->height = height;
     xwl_output->width = 2048;
     xwl_output->height = 2048;
 

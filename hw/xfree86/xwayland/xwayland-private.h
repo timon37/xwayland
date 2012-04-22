@@ -75,6 +75,10 @@ struct xwl_screen {
     SetWindowPixmapProcPtr	 SetWindowPixmap;
     MoveWindowProcPtr		 MoveWindow;
     miPointerSpriteFuncPtr	 sprite_funcs;
+    
+    #define dScrHook(_name)	_name##ProcPtr	_name;
+    #include "xwayland-hook.h"
+    #undef dScrHook
 };
 
 struct xwl_output {

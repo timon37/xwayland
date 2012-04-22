@@ -1,0 +1,4 @@
+
+
+dScrHook(PositionWindow)
+dScrHook(ChangeWindowAttributes)

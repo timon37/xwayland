@@ -153,6 +153,15 @@ int xwl_drm_authenticate(struct xwl_screen *xwl_screen,
     return Success;
 }
 
+int
+xwl_clear_window_buffer_drm(struct xwl_window *xwl_window)
+{
+    WindowPtr window = xwl_window->window;
+
+    xwl_window->buffer = NULL;
+
+    return xwl_window->buffer ? Success : BadDrawable;
+}
 
 int
 xwl_create_window_buffer_drm(struct xwl_window *xwl_window,

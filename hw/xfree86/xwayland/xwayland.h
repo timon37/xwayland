@@ -67,6 +67,8 @@ xwl_drm_authenticate(struct xwl_screen *xwl_screen,
 		     uint32_t magic);
 
 extern _X_EXPORT int
+xwl_clear_window_buffer_drm(struct xwl_window *xwl_window);
+extern _X_EXPORT int
 xwl_create_window_buffer_drm(struct xwl_window *xwl_window,
 			     PixmapPtr pixmap, uint32_t name);
 
@@ -75,5 +77,17 @@ xwl_create_window_buffer_shm(struct xwl_window *xwl_window,
 			     PixmapPtr pixmap, int fd);
 
 #define dHackP(fmt,...)	xf86DrvMsgVerb(0, X_INFO, 0, "@@@@@@@@@@@@@@@@@@@@@@@@@@@ %s:	" fmt "\n", __FUNCTION__, ## __VA_ARGS__)
+
+#define dScrCall(_name,...)	\
+	({	\
+		typeof((*screen->_name)(win, ## __VA_ARGS__)) ret;	\
+		screen->_name = xwl_screen->_name;	\
+		ret = (*screen->_name)(win, ## __VA_ARGS__);	\
+		xwl_screen->_name = screen->_name;\	
+		screen->_name = xwl_Win_##_name;	\
+		ret;	\
+	})
+
+
 
 #endif /* _XWAYLAND_H_ */

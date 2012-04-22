@@ -38,12 +38,302 @@
 #include <selection.h>
 #include <compositeext.h>
 #include <exevents.h>
+#include <X11/Xatom.h>
 
 #include "xwayland.h"
 #include "xwayland-private.h"
 #include "xserver-client-protocol.h"
 
 static DevPrivateKeyRec xwl_window_private_key;
+
+
+#define DEFINE_ATOM_HELPER(atom_name)						\
+static Atom xa_##atom_name (void) {							\
+	static int generation;								\
+	static Atom atom;									\
+	if (generation != serverGeneration) {					\
+		generation = serverGeneration;					\
+		atom = MakeAtom (#atom_name, strlen (#atom_name), TRUE); 	\
+	}											\
+	return atom;									\
+}
+//DEFINE_ATOM_HELPER(xa_native_screen_origin, "_NATIVE_SCREEN_ORIGIN")
+
+DEFINE_ATOM_HELPER(WM_NORMAL_HINTS)
+DEFINE_ATOM_HELPER(WM_SIZE_HINTS)
+
+DEFINE_ATOM_HELPER(_NET_WM_WINDOW_TYPE)
+DEFINE_ATOM_HELPER(_NET_WM_WINDOW_TYPE_DESKTOP)
+DEFINE_ATOM_HELPER(_NET_WM_WINDOW_TYPE_DOCK)
+DEFINE_ATOM_HELPER(_NET_WM_WINDOW_TYPE_TOOLBAR)
+DEFINE_ATOM_HELPER(_NET_WM_WINDOW_TYPE_MENU)
+DEFINE_ATOM_HELPER(_NET_WM_WINDOW_TYPE_UTILITY)
+DEFINE_ATOM_HELPER(_NET_WM_WINDOW_TYPE_SPLASH)
+DEFINE_ATOM_HELPER(_NET_WM_WINDOW_TYPE_DIALOG)
+DEFINE_ATOM_HELPER(_NET_WM_WINDOW_TYPE_NORMAL)
+DEFINE_ATOM_HELPER(_NET_WM_WINDOW_TYPE_POPUP_MENU)
+DEFINE_ATOM_HELPER(_NET_WM_WINDOW_TYPE_DROPDOWN_MENU)
+
+/* Updates the _NATIVE_SCREEN_ORIGIN property on the given root window. *//*
+void		Window_WMSetScreenOrigin		(WindowPtr pWin)
+{
+	int32_t data[2];
+
+	data[0] = pWin->drawable.pScreen->x + darwinMainScreenX;
+	data[1] = pWin->drawable.pScreen->y + darwinMainScreenY;
+
+	dixChangeWindowProperty(serverClient, pWin, xa_native_screen_origin(), XA_INTEGER, 32, PropModeReplace, 2, data, TRUE);
+}
+
+/* Window managers can set the _APPLE_NO_ORDER_IN property on windows
+   that are being genie-restored from the Dock. We want them to
+   be mapped but remain ordered-out until the animation
+   completes (when the Dock will order them in). */
+
+enum {
+	dWM_SIZE_HINT_US_POSITION	= 1 << 0,
+	dWM_SIZE_HINT_US_SIZE		= 1 << 1,
+	dWM_SIZE_HINT_P_POSITION	= 1 << 2,
+	dWM_SIZE_HINT_P_SIZE		= 1 << 3,
+	dWM_SIZE_HINT_P_MIN_SIZE	= 1 << 4,
+	dWM_SIZE_HINT_P_MAX_SIZE	= 1 << 5,
+	dWM_SIZE_HINT_P_RESIZE_INC	= 1 << 6,
+	dWM_SIZE_HINT_P_ASPECT		= 1 << 7,
+	dWM_SIZE_HINT_BASE_SIZE 	= 1 << 8,
+	dWM_SIZE_HINT_P_WIN_GRAVITY	= 1 << 9
+};
+
+typedef struct {
+	uint32_t flags;
+	int32_t x, y;
+	int32_t width, height;
+	int32_t min_width, min_height;
+	int32_t max_width, max_height;
+	int32_t width_inc, height_inc;
+	int32_t min_aspect_num, min_aspect_den;
+	int32_t max_aspect_num, max_aspect_den;
+	int32_t base_width, base_height;
+	uint32_t win_gravity;
+}tWM_SIZE_HINTS;
+
+#if 0
+dixChangeWindowProperty(ClientPtr pClient, WindowPtr pWin, Atom property,
+			Atom type, int format, int mode, unsigned long len,
+			pointer value, Bool sendevent)
+{
+    PropertyPtr pProp;
+    PropertyRec savedProp;
+    int sizeInBytes, totalSize, rc;
+    unsigned char *data;
+    Mask access_mode;
+
+    sizeInBytes = format>>3;
+    totalSize = len * sizeInBytes;
+    access_mode = (mode == PropModeReplace) ? DixWriteAccess : DixBlendAccess;
+
+    /* first see if property already exists */
+    rc = dixLookupProperty(&pProp, pWin, property, pClient, access_mode);
+
+    if (rc == BadMatch)   /* just add to list */
+    {
+	if (!pWin->optional && !MakeWindowOptional (pWin))
+	    return BadAlloc;
+	pProp = dixAllocateObjectWithPrivates(PropertyRec, PRIVATE_PROPERTY);
+	if (!pProp)
+	    return BadAlloc;
+        data = malloc(totalSize);
+	if (!data && len)
+	{
+	    dixFreeObjectWithPrivates(pProp, PRIVATE_PROPERTY);
+	    return BadAlloc;
+	}
+        memcpy(data, value, totalSize);
+        pProp->propertyName = property;
+        pProp->type = type;
+        pProp->format = format;
+        pProp->data = data;
+	pProp->size = len;
+	rc = XaceHookPropertyAccess(pClient, pWin, &pProp,
+				    DixCreateAccess|DixWriteAccess);
+	if (rc != Success) {
+	    free(data);
+	    dixFreeObjectWithPrivates(pProp, PRIVATE_PROPERTY);
+	    pClient->errorValue = property;
+	    return rc;
+	}
+        pProp->next = pWin->optional->userProps;
+        pWin->optional->userProps = pProp;
+    }
+    else if (rc == Success)
+    {
+	/* To append or prepend to a property the request format and type
+		must match those of the already defined property.  The
+		existing format and type are irrelevant when using the mode
+		"PropModeReplace" since they will be written over. */
+
+        if ((format != pProp->format) && (mode != PropModeReplace))
+	    return BadMatch;
+        if ((pProp->type != type) && (mode != PropModeReplace))
+            return BadMatch;
+
+	/* save the old values for later */
+	savedProp = *pProp;
+
+        if (mode == PropModeReplace)
+        {
+	    data = malloc(totalSize);
+	    if (!data && len)
+		return BadAlloc;
+	    memcpy(data, value, totalSize);
+	    pProp->data = data;
+	    pProp->size = len;
+    	    pProp->type = type;
+	    pProp->format = format;
+	}
+	else if (len == 0)
+	{
+	    /* do nothing */
+	}
+        else if (mode == PropModeAppend)
+        {
+	    data = malloc((pProp->size + len) * sizeInBytes);
+	    if (!data)
+		return BadAlloc;
+	    memcpy(data, pProp->data, pProp->size * sizeInBytes);
+	    memcpy(data + pProp->size * sizeInBytes, value, totalSize);
+            pProp->data = data;
+            pProp->size += len;
+	}
+        else if (mode == PropModePrepend)
+        {
+            data = malloc(sizeInBytes * (len + pProp->size));
+	    if (!data)
+		return BadAlloc;
+            memcpy(data + totalSize, pProp->data, pProp->size * sizeInBytes);
+            memcpy(data, value, totalSize);
+            pProp->data = data;
+            pProp->size += len;
+	}
+
+	/* Allow security modules to check the new content */
+	access_mode |= DixPostAccess;
+	rc = XaceHookPropertyAccess(pClient, pWin, &pProp, access_mode);
+	if (rc == Success)
+	{
+	    if (savedProp.data != pProp->data)
+		free(savedProp.data);
+	}
+	else
+	{
+	    if (savedProp.data != pProp->data)
+		free(pProp->data);
+	    *pProp = savedProp;
+	    return rc;
+	}
+    }
+    else
+	return rc;
+
+    if (sendevent)
+	deliverPropertyNotifyEvent(pWin, PropertyNewValue, pProp->propertyName);
+
+    return Success;
+}
+#endif
+
+
+
+PropertyPtr		Window_PropGetWithType			(WindowPtr win, Atom atom, Atom type)
+{
+//	dHackP ("win id %d", win->drawable.id);
+	PropertyPtr prop;
+	int rc;
+	
+//	atom = xa_WM_NORMAL_HINTS();
+//	dHackP ("atom %d", atom);
+	rc = dixLookupProperty(&prop, win, atom, wClient(win), DixReadAccess);
+	
+	if(Success == rc) {
+	//	dHackP ("rc %d  prop->type %d", rc, prop->type);
+		if (prop->type == type) {
+		//	dHackP ("Good");
+			return prop;
+		}
+	}
+//	dHackP ("Bad");
+	return 0;
+}
+
+PropertyPtr		Window_PropGet				(WindowPtr win, Atom atom)
+{
+	dHackP ("win id %d", win->drawable.id);
+	PropertyPtr prop;
+	int rc;
+	
+	dHackP ("atom %d", atom);
+	rc = dixLookupProperty(&prop, win, atom, wClient(win), DixReadAccess);
+	
+	if(Success == rc) {
+		dHackP ("rc %d  prop->type %d", rc, prop->type);
+		dHackP ("Good");
+		return prop;
+	}
+	dHackP ("Bad");
+	return 0;
+}
+
+WindowPtr		Window_TransientForGet			(WindowPtr win)
+{
+	PropertyPtr transient_for_prop = Window_PropGetWithType (win, XA_WM_TRANSIENT_FOR, XA_WINDOW);
+	WindowPtr transient_for = 0;
+	if (transient_for_prop) {
+	//	dHackP("transient_for_prop->data 0x%lx", transient_for_prop->data);
+	//	dHackP("transient_for_prop->data %d", transient_for_prop->data);
+	//	dHackP("transient_for_prop->data %d", *(int32_t*)transient_for_prop->data);
+	//	transient_for = transient_for_prop->data;
+		
+		dixLookupWindow(&transient_for, *(int32_t*)transient_for_prop->data, serverClient, DixReadAccess);
+		
+	//	dHackP("transient_for 0x%lx", transient_for);
+	//	dHackP("transient_for %d", transient_for);
+	}
+	if (transient_for)
+		dHackP("transient_for %d", transient_for->drawable.id);
+	else
+		dHackP("transient_for %d", -1);
+	return transient_for;
+}
+
+Bool		xwl_Win_PositionWindow					(WindowPtr win, int x, int y)
+{
+	ScreenPtr screen = win->drawable.pScreen;
+	struct xwl_screen *xwl_screen = xwl_screen_get(screen);
+	
+	struct xwl_window *xwl_window;
+	
+	
+	
+	
+	dHackP("win %d  xy %d %d", win->drawable.id, x, y);
+	return dScrCall (PositionWindow, x, y);
+}
+Bool		xwl_Win_ChangeWindowAttributes			(WindowPtr win, unsigned long mask)
+{
+	ScreenPtr screen = win->drawable.pScreen;
+	struct xwl_screen *xwl_screen = xwl_screen_get(screen);
+	struct xwl_window *xwl_window;
+	
+//	xGetWindowAttributesReply wa;
+//	GetWindowAttributes (win, wClient(win), &wa);
+	
+	dHackP("win %d  mask %d", win->drawable.id, mask);
+	return dScrCall (ChangeWindowAttributes, mask);
+	
+}
+
+
+
+
 
 void		winMWExtWMResizeXWindow			(WindowPtr pWin, int w, int h)
 {
@@ -56,8 +346,7 @@ void		winMWExtWMResizeXWindow			(WindowPtr pWin, int w, int h)
 }
 
 
-static void
-xwl_shell_handle_configure(void *data, struct wl_shell_surface *shell_surface, uint32_t edges, int32_t width, int32_t height)
+static void			xwl_shell_handle_configure		(void *data, struct wl_shell_surface *shell_surface, uint32_t edges, int32_t width, int32_t height)
 {
 	dHackP("data 0x%lx wh %d %d", data, width, height);
 	struct xwl_window *xwl_window = data;
@@ -68,7 +357,7 @@ xwl_shell_handle_configure(void *data, struct wl_shell_surface *shell_surface, u
 	dHackP("shell_surface 0x%lx window 0x%lx", shell_surface, xwl_window->window);
 	dHackP("window id %d", xwl_window->window->drawable.id);
 	
-	return;
+//	return;
 //	winMWExtWMResizeXWindow (xwl_window->window, width, height);
 	
 	CARD32 *vlist = malloc(sizeof(CARD32)*2);
@@ -99,8 +388,7 @@ xwl_shell_handle_configure(void *data, struct wl_shell_surface *shell_surface, u
 //	xwl_window->resize_edges = edges;
 //	window_schedule_resize(xwl_window, width, height);
 }
-static void
-xwl_shell_handle_popup_done(void *data, struct wl_shell_surface *shell_surface)
+static void			xwl_shell_handle_popup_done		(void *data, struct wl_shell_surface *shell_surface)
 {
 //	printf ("HAUHTEONSUHETONSUHTENSOUHTEOTNSUHEOTNSUHTEOSUHTNSEOU xwl_shell_handle_popup_done\n");
 /*	struct window *window = data;
@@ -116,17 +404,31 @@ xwl_shell_handle_popup_done(void *data, struct wl_shell_surface *shell_surface)
 	menu_destroy(menu);/**/
 }
 
-static void
-xwl_shell_handle_ping(void *data, struct wl_shell_surface *shell_surface,
-							uint32_t serial)
+static void			xwl_shell_handle_ping			(void *data, struct wl_shell_surface *shell_surface, uint32_t serial)
 {
 	wl_shell_surface_pong(shell_surface, serial);
 }
 
+static void			xwl_shell_handle_position		(void *data,
+										struct wl_shell_surface *wl_shell_surface,
+										int32_t x,
+										int32_t y)
+{
+	dHackP("xy %d %d", x, y);
+	struct xwl_window *xwl_window = data;
+	CARD32 *vlist = malloc(sizeof(CARD32)*2);
+	if (xwl_window && xwl_window->window)
+		dHackP("xwl_window 0x%lx  win 0x%lx  id %d xy %d %d", xwl_window, xwl_window->window, xwl_window->window->drawable.id, x, y);
+	vlist[0] = x;
+	vlist[1] = y;
+	ConfigureWindow (xwl_window->window, CWX | CWY, vlist, wClient(xwl_window->window));
+	free(vlist);
+}
 static const struct wl_shell_surface_listener xwl_shell_surface_listener = {
-	xwl_shell_handle_ping,
-	xwl_shell_handle_configure,
-	xwl_shell_handle_popup_done
+	.ping = xwl_shell_handle_ping,
+	.configure = xwl_shell_handle_configure,
+	.popup_done = xwl_shell_handle_popup_done,
+	.position = xwl_shell_handle_position,
 };
 
 static void
@@ -196,7 +498,7 @@ xwl_window_attach(struct xwl_window *xwl_window, PixmapPtr pixmap)
 static Bool
 xwl_create_window(WindowPtr window)
 {
-	dHackP ("window id %d", window->drawable.id);
+	dHackP ("window id %d  %d  0x%lx", window->drawable.id, window, window);
     ScreenPtr screen = window->drawable.pScreen;
     struct xwl_screen *xwl_screen;
     Selection *selection;
@@ -211,7 +513,7 @@ xwl_create_window(WindowPtr window)
     ret = (*screen->CreateWindow)(window);
     xwl_screen->CreateWindow = screen->CreateWindow;
     screen->CreateWindow = xwl_create_window;
-
+	
     if (!(xwl_screen->flags & XWL_FLAGS_ROOTLESS) || window->parent != NULL) {
 	dHackP ("E window->parent != NULL");
 	return ret;
@@ -263,7 +565,7 @@ damage_report(DamagePtr pDamage, RegionPtr pRegion, void *data)
 	struct xwl_screen *xwl_screen = xwl_window->xwl_screen;
 	
 //	dHackP();
-	xorg_list_add(&xwl_window->link_damage, &xwl_screen->damage_window_list);
+//	xorg_list_add(&xwl_window->link_damage, &xwl_screen->damage_window_list);
 //	dHackP("E");
 	
 //	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s E\n", __FUNCTION__);
@@ -278,6 +580,9 @@ static Bool
 xwl_realize_window(WindowPtr window)
 {
 	dHackP ("window id %d\n", window->drawable.id);
+	if (window->parent)
+	dHackP ("window id %d pid %d\n", window->drawable.id, window->parent->drawable.id);
+//	Window_PrintProp(window);
 	ScreenPtr screen = window->drawable.pScreen;
 	struct xwl_screen *xwl_screen;
 	struct xwl_window *xwl_window;
@@ -356,16 +661,81 @@ xwl_realize_window(WindowPtr window)
 			wl_shell_surface_set_user_data(xwl_window->shsurf, xwl_window);
 			wl_shell_surface_add_listener(xwl_window->shsurf, &xwl_shell_surface_listener, xwl_window);
 		}
-	//	wl_shell_surface_set_toplevel(xwl_window->shsurf);
-	//	wl_shell_surface_set_transient(xwl_window->shsurf);
-		if (window->parent) {
-			dHackP ("window->parent");
-			struct xwl_window* xwl_parent = dixLookupPrivate(&window->parent->devPrivates, &xwl_window_private_key);
-			if (xwl_parent) {
-				dHackP ("xwl_parent");
-				wl_shell_surface_set_transient(xwl_window->shsurf, xwl_parent->shsurf, window->drawable.x, window->drawable.y, 0);
-			}else
+		
+		PropertyPtr prop = Window_PropGetWithType(window, xa__NET_WM_WINDOW_TYPE(), XA_ATOM);
+		if (prop) {
+			Atom atom = *(Atom*)prop->data;
+			dHackP ("atom %d 0x%lx %s", atom, atom, NameForAtom(atom));
+			#define dif(name)	else if (atom == xa_##name())	dHackP ("TYPE is" #name);
+			if (0);
+			dif(_NET_WM_WINDOW_TYPE_DESKTOP)
+			dif(_NET_WM_WINDOW_TYPE_DOCK)
+			dif(_NET_WM_WINDOW_TYPE_TOOLBAR)
+			dif(_NET_WM_WINDOW_TYPE_MENU)
+			dif(_NET_WM_WINDOW_TYPE_UTILITY)
+			dif(_NET_WM_WINDOW_TYPE_SPLASH)
+			dif(_NET_WM_WINDOW_TYPE_DIALOG)
+			dif(_NET_WM_WINDOW_TYPE_NORMAL)
+			else dHackP ("TYPE is other");
+			#undef dif
+		}
+		
+		prop = Window_PropGetWithType(window, xa_WM_NORMAL_HINTS(), xa_WM_SIZE_HINTS());
+		if (prop) {
+			tWM_SIZE_HINTS* phints = prop->data;
+		//	sizeInBytes = format>>3;
+		//	totalSize = len * sizeInBytes;
+		/*	int i = 0;
+			for (; i < (prop->format>>3)*prop->size / 4; ++i) {
+				dHackP ("SIZE_HINT %.8x", ((int32_t*)prop->data)[i]);
+			}*/
+			WindowPtr tmp, transient_for = Window_TransientForGet(window);
+			
+			struct xwl_window* xwl_parent = 0;
+			int32_t bx = 0, by = 0;
+			if (transient_for
+				&& window->parent
+				//&& transient_for->parent// && !window->parent->parent
+			) {
+			//	for (; tmp = Window_TransientForGet(transient_for); transient_for = tmp)
+			//		;
+			//	xwl_parent = dixLookupPrivate(&window->parent->devPrivates, &xwl_window_private_key);
+			//	xwl_parent = dixLookupPrivate(&transient_for->devPrivates, &xwl_window_private_key);
+			//	dHackP ("window->parent id %d", window->parent->drawable.id);
+			//	struct xwl_window* xwl_parent = dixLookupPrivate(&window->parent->devPrivates, &xwl_window_private_key);
+			//	if (xwl_parent) {
+				//	wl_shell_surface_set_transient(xwl_window->shsurf, xwl_parent->shsurf, window->drawable.x, window->drawable.y, 0);
+			//	}else {
+				//	wl_shell_surface_set_toplevel(xwl_window->shsurf);
+			//	}
+			//	bx = transient_for->drawable.x;
+			//	by = transient_for->drawable.y;
+			}
+			if (phints->flags & dWM_SIZE_HINT_US_POSITION || phints->flags & dWM_SIZE_HINT_P_POSITION) {
+				dHackP ("wl_shell_surface_set_transient xy %d %d", phints->x, phints->y);
+			}
+			if (phints->flags & dWM_SIZE_HINT_P_MIN_SIZE) {
+				dHackP ("wl_shell_surface_set_transient min %d %d", phints->min_width, phints->min_height);
+			}
+			if (phints->flags & dWM_SIZE_HINT_P_MAX_SIZE) {
+				dHackP ("wl_shell_surface_set_transient max %d %d", phints->max_width, phints->max_height);
+			}
+			if (phints->flags & dWM_SIZE_HINT_BASE_SIZE) {
+				dHackP ("wl_shell_surface_set_transient base %d %d", phints->base_width, phints->base_height);
+				
+			}
+			if (phints->flags & dWM_SIZE_HINT_US_POSITION || phints->flags & dWM_SIZE_HINT_P_POSITION) {
+				dHackP ("wl_shell_surface_set_transient bxy %d %d", bx, by);
+				dHackP ("wl_shell_surface_set_transient xy %d %d", phints->x, phints->y);
+			//	wl_shell_surface_set_toplevel(xwl_window->shsurf);
+			//	wl_shell_surface_set_transient(xwl_window->shsurf, 0, bx + phints->x, by + phints->y, 0);
+			//	if (xwl_parent && xwl_parent->shsurf)
+			//		wl_shell_surface_set_transient(xwl_window->shsurf, xwl_parent->shsurf, phints->x, phints->y, 0);
+			//	else
+					wl_shell_surface_set_transient(xwl_window->shsurf, 0, phints->x, phints->y, 0);
+			}else {
 				wl_shell_surface_set_toplevel(xwl_window->shsurf);
+			}
 		}else {
 			wl_shell_surface_set_toplevel(xwl_window->shsurf);
 		}
@@ -448,7 +818,7 @@ static void
 xwl_move_window(WindowPtr window, int x, int y,
 		   WindowPtr sibling, VTKind kind)
 {
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s\n", __FUNCTION__);
+	dHackP("win %d  xy %d %d", window->drawable.id, x, y);
     ScreenPtr screen = window->drawable.pScreen;
     struct xwl_screen *xwl_screen;
     struct xwl_window *xwl_window;
@@ -471,7 +841,7 @@ xwl_screen_init_window(struct xwl_screen *xwl_screen, ScreenPtr screen)
 {
     if (!dixRegisterPrivateKey(&xwl_window_private_key, PRIVATE_WINDOW, 0))
 	return BadAlloc;
-
+	
     xwl_screen->CreateWindow = screen->CreateWindow;
     screen->CreateWindow = xwl_create_window;
 
@@ -489,6 +859,13 @@ xwl_screen_init_window(struct xwl_screen *xwl_screen, ScreenPtr screen)
 
     xwl_screen->MoveWindow = screen->MoveWindow;
     screen->MoveWindow = xwl_move_window;
-
+    
+    
+    #define dScrHook(_name)	xwl_screen->_name = screen->_name;	\
+					screen->_name = xwl_Win_##_name;
+    
+    #include "xwayland-hook.h"
+    #undef dScrHook
+    
     return Success;
 }
