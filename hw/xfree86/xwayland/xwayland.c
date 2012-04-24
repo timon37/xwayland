@@ -277,10 +277,9 @@ xwl_screen_pre_init(ScrnInfoPtr scrninfo,
 }
 
 int
-xwl_create_window_buffer_shm(struct xwl_window *xwl_window,
-			     PixmapPtr pixmap, int fd)
+xwl_create_window_buffer_shm(struct xwl_window *xwl_window, PixmapPtr pixmap, int fd)
 {
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s\n", __FUNCTION__);
+	dHackP ("xwl_create_window_buffer_drm %lx pixmap %lx fd %d", xwl_window, pixmap, fd);
     VisualID visual;
     uint32_t format;
     WindowPtr window = xwl_window->window;
@@ -300,12 +299,15 @@ xwl_create_window_buffer_shm(struct xwl_window *xwl_window,
 
     size = pixmap->drawable.width * pixmap->drawable.height * 4;
     pool = wl_shm_create_pool(xwl_window->xwl_screen->shm, fd, size);
+	if (!pool) {
+		dHackP ("!pool");
+	}
     xwl_window->buffer =  wl_shm_pool_create_buffer(pool, 0,
 			   pixmap->drawable.width, pixmap->drawable.height,
 			   pixmap->drawable.width * 4, format);
     wl_shm_pool_destroy(pool);
 
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s E\n", __FUNCTION__);
+	dHackP ("E xwl_window->buffer %lx", xwl_window->buffer);
     return xwl_window->buffer ? Success : BadDrawable;
 }
 
@@ -355,6 +357,7 @@ void xwl_screen_destroy(struct xwl_screen *xwl_screen)
 /* DDX driver must call this after submitting the rendering */
 void xwl_screen_post_damage(struct xwl_screen *xwl_screen)
 {
+//	dHackP ();
 //	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s\n", __FUNCTION__);
     struct xwl_window *xwl_window;
     RegionPtr region;
@@ -362,7 +365,6 @@ void xwl_screen_post_damage(struct xwl_screen *xwl_screen)
     int count, i;
 
     xorg_list_for_each_entry(xwl_window, &xwl_screen->damage_window_list, link_damage) {
-
 	region = DamageRegion(xwl_window->damage);
 	count = RegionNumRects(region);
 	for (i = 0; i < count; i++) {
@@ -376,6 +378,7 @@ void xwl_screen_post_damage(struct xwl_screen *xwl_screen)
     }
 
     xorg_list_init(&xwl_screen->damage_window_list);
+//	dHackP ("E");
 //	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s E\n", __FUNCTION__);
 }
 

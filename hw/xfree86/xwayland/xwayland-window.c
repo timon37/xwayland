@@ -348,6 +348,7 @@ void		winMWExtWMResizeXWindow			(WindowPtr pWin, int w, int h)
 
 static void			xwl_shell_handle_configure		(void *data, struct wl_shell_surface *shell_surface, uint32_t edges, int32_t width, int32_t height)
 {
+//	return;
 	dHackP("data 0x%lx wh %d %d", data, width, height);
 	struct xwl_window *xwl_window = data;
 	dHackP("wh %d %d", width, height);
@@ -367,6 +368,7 @@ static void			xwl_shell_handle_configure		(void *data, struct wl_shell_surface *
 	ConfigureWindow (xwl_window->window, CWWidth | CWHeight, vlist, wClient(xwl_window->window));
 	free(vlist);
 	
+	dHackP("E");
 /*	XWindowChanges wc;
 	
 	c->oldx = c->x;
@@ -434,12 +436,13 @@ static const struct wl_shell_surface_listener xwl_shell_surface_listener = {
 static void
 free_pixmap(void *data, struct wl_callback *callback, uint32_t time)
 {
-//	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  free_pixmap\n");
-//	PixmapPtr pixmap = data;
-//	ScreenPtr screen = pixmap->drawable.pScreen;
+	PixmapPtr pixmap = data;
+	dHackP ("pixmap %lx", pixmap);
+	ScreenPtr screen = pixmap->drawable.pScreen;
 	
-//	(*screen->DestroyPixmap)(pixmap);
-//	wl_callback_destroy(callback);
+	(*screen->DestroyPixmap)(pixmap);
+	wl_callback_destroy(callback);
+	dHackP ("E");
 }
 
 static const struct wl_callback_listener free_pixmap_listener = {
@@ -449,24 +452,30 @@ static const struct wl_callback_listener free_pixmap_listener = {
 static void
 xwl_window_attach(struct xwl_window *xwl_window, PixmapPtr pixmap)
 {
+	dHackP ("window %lx", xwl_window);
 	struct xwl_screen *xwl_screen = xwl_window->xwl_screen;
 	struct wl_callback *callback;
 	
 	/* We can safely destroy the buffer because we only use one buffer
 	* per surface in xwayland model */
-	if (xwl_window->buffer)
+	if (xwl_window->buffer) {
+		dHackP ("wl_buffer_destroy");
 		wl_buffer_destroy(xwl_window->buffer);
-	
-	
+	}
+	dHackP ("create_window_buffer");
 	xwl_screen->driver->create_window_buffer(xwl_window, pixmap);
 	
+	dHackP ("before if !xwl_window->buffer");
 	if (!xwl_window->buffer) {
-		ErrorF("failed to create buffer\n");
+		dHackP ("E !xwl_window->buffer");
+		ErrorF("failed to create buffer");
 		return;
 	}
 	
+	dHackP ("wl_surface_attach");
 	wl_surface_attach(xwl_window->surface, xwl_window->buffer, 0, 0);
 	
+	dHackP ("regions");
 	struct wl_region *input_region = wl_compositor_create_region(xwl_screen->compositor);
 	wl_region_add(input_region, 0, 0, pixmap->drawable.width, pixmap->drawable.height);
 	
@@ -485,14 +494,18 @@ xwl_window_attach(struct xwl_window *xwl_window, PixmapPtr pixmap)
 		opaque_region = NULL;
 	}
 	
+	dHackP ("wl_surface_damage");
 	wl_surface_damage(xwl_window->surface, 0, 0,
 			pixmap->drawable.width,
 			pixmap->drawable.height);
 	
 	
+	dHackP ("wl_display_sync");
 	callback = wl_display_sync(xwl_screen->display);
+	dHackP ("wl_callback_add_listener");
 	wl_callback_add_listener(callback, &free_pixmap_listener, pixmap);
 	pixmap->refcnt++;
+	dHackP ("E");
 }
 
 static Bool
@@ -564,8 +577,8 @@ damage_report(DamagePtr pDamage, RegionPtr pRegion, void *data)
 	struct xwl_window *xwl_window = data;
 	struct xwl_screen *xwl_screen = xwl_window->xwl_screen;
 	
-//	dHackP();
-//	xorg_list_add(&xwl_window->link_damage, &xwl_screen->damage_window_list);
+//	dHackP("xwl_window %lx", xwl_window);
+	xorg_list_add(&xwl_window->link_damage, &xwl_screen->damage_window_list);
 //	dHackP("E");
 	
 //	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s E\n", __FUNCTION__);
@@ -754,7 +767,7 @@ xwl_unrealize_window(WindowPtr window)
 {
     ScreenPtr screen = window->drawable.pScreen;
     struct xwl_screen *xwl_screen;
-    struct xwl_window *xwl_window;
+    struct xwl_window *xwl_window, *iter, *tmp;
     struct xwl_input_device *xwl_input_device;
     Bool ret;
 
@@ -779,11 +792,19 @@ xwl_unrealize_window(WindowPtr window)
     if (!xwl_window)
 	return ret;
 
+//	dHackP("xwl_window %lx", xwl_window);
     if (xwl_window->buffer)
 	wl_buffer_destroy(xwl_window->buffer);
     wl_surface_destroy(xwl_window->surface);
     xorg_list_del(&xwl_window->link);
-    xorg_list_del(&xwl_window->link_damage);
+    
+    xorg_list_for_each_entry_safe(iter, tmp, &xwl_screen->damage_window_list, link_damage) {
+	if (iter == xwl_window) {
+		xorg_list_del(&xwl_window->link_damage);
+		break;
+	}
+    }
+    //xorg_list_del(&xwl_window->link_damage);
     DamageUnregister(&window->drawable, xwl_window->damage);
     DamageDestroy(xwl_window->damage);
     free(xwl_window);
@@ -792,11 +813,11 @@ xwl_unrealize_window(WindowPtr window)
     return ret;
 }
 
+
 static void
 xwl_set_window_pixmap(WindowPtr window, PixmapPtr pixmap)
 {
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %s %lx\n", __FUNCTION__, pixmap);
-	xf86DrvMsgVerb(0, X_INFO, 0, "AEUEUEOUUEAEUEUEOUUEAEUEUEOUUE  %d %d\n", pixmap->drawable.width, pixmap->drawable.height);
+	dHackP ("window id %d", window->drawable.id);
     ScreenPtr screen = window->drawable.pScreen;
     struct xwl_screen *xwl_screen;
     struct xwl_window *xwl_window;
@@ -808,10 +829,13 @@ xwl_set_window_pixmap(WindowPtr window, PixmapPtr pixmap)
     xwl_screen->SetWindowPixmap = screen->SetWindowPixmap;
     screen->SetWindowPixmap = xwl_set_window_pixmap;
 	
-    xwl_window =
-	dixLookupPrivate(&window->devPrivates, &xwl_window_private_key);
-    if (xwl_window)
+	dHackP ("dixLookupPrivate xwl_window");
+    xwl_window = dixLookupPrivate(&window->devPrivates, &xwl_window_private_key);
+    if (xwl_window) {
+	dHackP ("xwl_window %lx", xwl_window);
 	xwl_window_attach(xwl_window, pixmap);
+    }
+	dHackP ("E");
 }
 
 static void

@@ -167,6 +167,7 @@ int
 xwl_create_window_buffer_drm(struct xwl_window *xwl_window,
 			     PixmapPtr pixmap, uint32_t name)
 {
+	dHackP ("xwl_create_window_buffer_drm %xl", xwl_window);
     VisualID visual;
     uint32_t format;
     WindowPtr window = xwl_window->window;
@@ -191,6 +192,7 @@ xwl_create_window_buffer_drm(struct xwl_window *xwl_window,
 			   pixmap->devKind,
 			   format);
 
+	dHackP ("E xwl_window->buffer %xl", xwl_window->buffer);
     return xwl_window->buffer ? Success : BadDrawable;
 }
 
