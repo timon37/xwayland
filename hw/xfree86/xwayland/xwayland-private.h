@@ -128,4 +128,9 @@ int wayland_screen_close(struct xwl_screen *screen);
 
 int xwl_drm_pre_init(struct xwl_screen *screen);
 
+
+#define dWayland_WithPosition		0
+#define dWayland_WithGlobalTransient	0
+
+
 #endif /* _XWAYLAND_PRIVATE_H_ */

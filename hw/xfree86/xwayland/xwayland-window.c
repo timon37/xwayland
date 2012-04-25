@@ -411,6 +411,7 @@ static void			xwl_shell_handle_ping			(void *data, struct wl_shell_surface *shel
 	wl_shell_surface_pong(shell_surface, serial);
 }
 
+#if dWayland_WithPosition
 static void			xwl_shell_handle_position		(void *data,
 										struct wl_shell_surface *wl_shell_surface,
 										int32_t x,
@@ -426,11 +427,15 @@ static void			xwl_shell_handle_position		(void *data,
 	ConfigureWindow (xwl_window->window, CWX | CWY, vlist, wClient(xwl_window->window));
 	free(vlist);
 }
+#endif
+
 static const struct wl_shell_surface_listener xwl_shell_surface_listener = {
 	.ping = xwl_shell_handle_ping,
 	.configure = xwl_shell_handle_configure,
 	.popup_done = xwl_shell_handle_popup_done,
+	#if dWayland_WithPosition
 	.position = xwl_shell_handle_position,
+	#endif
 };
 
 static void
@@ -712,7 +717,7 @@ xwl_realize_window(WindowPtr window)
 			) {
 			//	for (; tmp = Window_TransientForGet(transient_for); transient_for = tmp)
 			//		;
-			//	xwl_parent = dixLookupPrivate(&window->parent->devPrivates, &xwl_window_private_key);
+				xwl_parent = dixLookupPrivate(&window->parent->devPrivates, &xwl_window_private_key);
 			//	xwl_parent = dixLookupPrivate(&transient_for->devPrivates, &xwl_window_private_key);
 			//	dHackP ("window->parent id %d", window->parent->drawable.id);
 			//	struct xwl_window* xwl_parent = dixLookupPrivate(&window->parent->devPrivates, &xwl_window_private_key);
@@ -745,7 +750,15 @@ xwl_realize_window(WindowPtr window)
 			//	if (xwl_parent && xwl_parent->shsurf)
 			//		wl_shell_surface_set_transient(xwl_window->shsurf, xwl_parent->shsurf, phints->x, phints->y, 0);
 			//	else
+				if (xwl_parent) {
+					wl_shell_surface_set_transient(xwl_window->shsurf, xwl_parent->shsurf, phints->x, phints->y, 0);
+				}else {
+					#if dWayland_WithGlobalTransient
 					wl_shell_surface_set_transient(xwl_window->shsurf, 0, phints->x, phints->y, 0);
+					#else
+					wl_shell_surface_set_toplevel(xwl_window->shsurf);
+					#endif
+				}
 			}else {
 				wl_shell_surface_set_toplevel(xwl_window->shsurf);
 			}
